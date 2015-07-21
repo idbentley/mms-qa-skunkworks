@@ -1,5 +1,6 @@
 import time
 
+from bson.objectid import ObjectId
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 def is_recent_ms(time, error=10000):
@@ -15,6 +16,6 @@ def was_most_recent_integrity_job_successful(isdb_client, group_id, rs_id):
 def corrupt_a_snapshot(isdb_client, snapshot_id):
 	query = {"_id": snapshot_id}
 	update = {
-		"$addToSet": {"fileIds": new ObjectId()}
+		"$addToSet": {"fileIds": ObjectId()}
 	}
 	isdb_client.snapshots.find(query, update)

@@ -1,5 +1,8 @@
 import time
 import logging
+import pymongo
+import random
+import json
 
 from python_mms_api.mms_client import MMSClient
 from qa_helpers import *
@@ -7,12 +10,45 @@ from private_conf import config
 
 #from mms_test_helpers import run_remote_js
 GROUP_ID = "55844fcce4b06adf8b229e26"
-RS_ID = "v20150623-integrity"
-CLUSTER_ID = "186d79f44d0f39015a727d810c6883a7"
+
+run_id = random.randint(0,1000)
 
 
-def update_automation_config():
-	pass
+def update_automation_config(hostname, group_id):
+	old_config = automation_client.get_config(group_id)
+	rs_id = "integrity-" + str(run_id)
+	dbpath = "/data/" + str(run_id) + "_1/"
+	new_process = {
+		"version": "3.0.4",
+		"name": rs_id + "_1",
+		"hostname": hostname,
+		"authSchemaVersion": 1,
+		"processType": "mongod",
+		"args2_6": {
+			"port": 27017,
+			"replSet": rs_id,
+			"dbpath": dbpath,
+			"logpath": dbpath + "mongodb.log"
+		}
+		
+	}
+	old_config["processes"].append(new_process)
+	new_rs = {
+		"_id": rs_id,
+		"members": [
+			{
+				"host": rs_id + "_1",
+				"priority": 1,
+				"votes": 1,
+				"slaveDelay": 0,
+				"hidden": False,
+				"arbiterOnly": False
+			}
+		]
+	}
+	old_config["replicaSets"].append(new_rs)
+	automation_client.update_config(group_id, old_config)
+	return rs_id
 
 def automation_working():
 	status = automation_client.get_status(GROUP_ID)
@@ -60,21 +96,22 @@ if __name__ == "__main__":
 		)
 	automation_client = mms_client.get_automation_client()
 	backup_client = mms_client.get_backup_client()
-	isdb_client = MongoClient(host=config["mms_backup_db_host", "mms_backup_db_port"])
+	isdb_client = pymongo.MongoClient(host=config["mms_backup_db_host"], port=config["mms_backup_db_port"])
+	config = automation_client.get_config(GROUP_ID)
+	#print(json.dumps(config, indent=4, separators=(',', ': ')))
 	# Provision machines, and set up hosts before this
-	#update_automation_config()
-	while automation_working():
-		time.sleep(10)
-		print("polling automation")
+	rsId = update_automation_config("1-0.ianv20150623.558814b1e4b04bb4be29bcdb.mongo.plumbing", GROUP_ID)
+	#while automation_working():
+	#	time.sleep(10)
+	#	print("polling automation")
 	# start_backup()
-	while is_backup_working():
-		time.sleep(10)
-		print("polling backup")
-	if not was_most_recent_integrity_job_successful(GROUP_ID, RS_ID):
-		print("most recent integrity job not successful.")
+	#while is_backup_working():
+	#	time.sleep(10)
+	#	print("polling backup")
+	#if not was_most_recent_integrity_job_successful(GROUP_ID, rsId):
+	#	print("most recent integrity job not successful.")
 
-	if not ensure_job_updates(GROUP_ID, RS_ID):
-		print("could not ensure that the job was updated apporpriately")
-			logging.info("manual check required.")
-	logging.error("whoops, something went wrong.")
-	schedule_integrity_job(isdb_client, GROUP_ID, RS_ID)
+	#if not ensure_job_updates(GROUP_ID, rsId):
+	#	print("could not ensure that the job was updated apporpriately")
+	#logging.error("whoops, something went wrong.")
+	#schedule_integrity_job(isdb_client, GROUP_ID, rsId)

@@ -14,7 +14,7 @@ class Automation(object):
 		uri = "/api/public/v1.0/groups/{group_id}/automationConfig"
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id)
-		resp = requets.get(full_uri, auth=self.auth)
+		resp = requests.get(full_uri, auth=self.auth)
 		#return AutomationConfig.parse_json(resp.json())
 		return resp.json()
 
@@ -22,12 +22,13 @@ class Automation(object):
 		uri = "/api/public/v1.0/groups/{group_id}/automationConfig"
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id)
-		resp = requests.post(
+		resp = requests.put(
 			full_uri,
-			headers=[accept_json_header],
-			auth=self.auth)
-			data=config,
-		return resp.status == 202
+			headers=accept_json_header,
+			auth=self.auth,
+			data=json.dumps(config))
+		import pdb; pdb.set_trace()
+		return resp.status_code == 202
 
 	def get_status(self, group_id):
 		uri = "/api/public/v1.0/groups/{group_id}/automationStatus"
