@@ -2,6 +2,7 @@ from requests.auth import HTTPDigestAuth
 
 from python_mms_api.backup import Backup
 from python_mms_api.automation import Automation
+from python_mms_api.cluster import Cluster
 
 class MMSClient(object):
 
@@ -18,4 +19,9 @@ class MMSClient(object):
 		if "backup_client" not in dir(self):
 			self.backup_client = Backup(self.base_uri, self.auth)
 		return self.backup_client
+
+	def get_cluster_client(self):
+		if "cluster_client" not in dir(self):
+			self.cluster_client = Cluster(self.base_uri, self.auth)
+		return self.cluster_client
 

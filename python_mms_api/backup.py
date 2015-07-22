@@ -22,8 +22,8 @@ class Backup(object):
 		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
 		resp = requests.patch(
 			full_uri,
-			headers=[accept_json_header],
-			data=config,
+			headers=accept_json_header,
+			data=json.dumps(config),
 			auth=self.auth)
-		return resp.status == 202
+		return resp.status_code == 202
 

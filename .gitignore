@@ -1,2 +1,3 @@
 venv/
 *.pyc
+private_conf.py

@@ -27,8 +27,7 @@ class Automation(object):
 			headers=accept_json_header,
 			auth=self.auth,
 			data=json.dumps(config))
-		import pdb; pdb.set_trace()
-		return resp.status_code == 202
+		return resp.status_code == 200
 
 	def get_status(self, group_id):
 		uri = "/api/public/v1.0/groups/{group_id}/automationStatus"
