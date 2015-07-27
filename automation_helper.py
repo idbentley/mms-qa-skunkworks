@@ -36,3 +36,12 @@ def add_new_rs(old_config, rs_id, dbpath, hostname, num_members, run_id):
 		new_rs["members"].append(member)
 	old_config["replicaSets"].append(new_rs)
 	return old_config
+
+def automation_working(group_id):
+	status = automation_client.get_status(group_id)
+	goal_version = status.get("goalVersion")
+	print(status)
+	for process in status["processes"]:
+		if process.get("lastGoalVersionAchieved") != goal_version:
+			return True
+	return False

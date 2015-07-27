@@ -11,28 +11,28 @@ class Host(object):
 
 	def get_all_hosts(group_id):
 		uri = "/api/public/v1.0/groups/{group_id}/hosts"
-				full_uri = self.base_uri + uri
+		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id)
 		resp = requests.get(full_uri, auth=self.auth)
 		return resp.json()
 
 	def get_host_by_id(group_id, host_id):
 		uri = "/api/public/v1.0/groups/{group_id}/hosts/{host_id}"
-				full_uri = self.base_uri + uri
+		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id, host_id=host_id)
 		resp = requests.get(full_uri, auth=self.auth)
 		return resp.json()
 
 	def get_host_by_hostname_and_port(group_id, hostname, port):
 		uri = "/api/public/v1.0/groups/{group_id}/hosts/{hostname}:{port}"
-				full_uri = self.base_uri + uri
+		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id, hostname=hostname, port=port)
 		resp = requests.get(full_uri, auth=self.auth)
 		return resp.json()
 
 	def get_hosts_by_hostname_prefix(group_id, hostname_prefix):
 		uri = "/api/public/v1.0/groups/{group_id}/hosts"
-				full_uri = self.base_uri + uri
+		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id)
 		resp = requests.get(full_uri, auth=self.auth)
 		all_hosts = resp.json()

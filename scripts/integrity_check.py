@@ -12,9 +12,23 @@ from automation_helper import *
 from snapshot_helpers import *
 from private_conf import config
 
-#from mms_test_helpers import run_remote_js
-
 run_id = random.randint(0,1000)
+
+def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
+	backupjobs_db = isdb_client.backupjobs
+	implicit_job = backupjobs_db.jobs.find_one({
+		"groupId": ObjectId(group_id),
+		"rsId": rs_id
+	})
+	snapshot = implicit_job.get("snapshot", {})
+	blockstore = implicit_job.get("blockstore", {})
+	caching_enabled = snapshot.get("caching", False)
+	last_updated_ms = snapshot.get("lastUpdatedMS", long_time_ago)
+	last_integrity_check_ms = blockstore.get("lastIntegrityCheckMS", long_time_ago)
+	if is_recent_ms(last_updated_ms) and is_recent_ms(last_integrity_check_ms):
+		return caching_enabled == desired_caching
+	return False
+
 
 def update_automation_config(hostname, group_id):
 	old_config = automation_client.get_config(group_id)
@@ -24,14 +38,6 @@ def update_automation_config(hostname, group_id):
 	automation_client.update_config(group_id, old_config)
 	return rs_id
 
-def automation_working(group_id):
-	status = automation_client.get_status(group_id)
-	goal_version = status.get("goalVersion")
-	print(status)
-	for process in status["processes"]:
-		if process.get("lastGoalVersionAchieved") != goal_version:
-			return True
-	return False
 
 def start_backup(group_id, cluster_id):
 	while True:
@@ -72,7 +78,7 @@ if __name__ == "__main__":
 	# Provision machines, and set up hosts before this
 	rs_id = update_automation_config(args.hostname, args.group_id)
 	print ("rsId " + rs_id)
-	while automation_working(args.group_id):
+	while automation_client.automation_working(args.group_id):
 		time.sleep(10)
 		print("polling automation")
 	cluster_id = None
@@ -89,8 +95,15 @@ if __name__ == "__main__":
 	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):
 		print("most recent integrity job not successful.")
 
-	if not ensure_job_updates(isdb_client, args.group_id, rs_id):
-		print("could not ensure that the job was updated apporpriately")
+	if not ensure_job_updates(isdb_client, args.group_id, rs_id, True):
+		print("could not ensure that the job was updated apropriately")
 	snapshot = find_a_snapshot(isdb_client, args.group_id, rs_id)
+	if snapshot is None or "_id" not in snapshot:
+		print("could not find usable snapshot.")
 	corrupt_snapshot(isdb_client, snapshot["_id"])
-	schedule_integrity_job(isdb_client, args.group_id, rs_id)
+	integrity_job_id = schedule_integrity_job(isdb_client, args.group_id, rs_id)
+	while not integrity_job_finished(isdb_client, integrity_job_id):
+		time.sleep(10)
+		print("waiting on integrity job")
+	confirm_integrity_job_failed(isdb_client, integrity_job_id)
+	ensure_job_update(isdb_client, args.group_id, rs_id, False)

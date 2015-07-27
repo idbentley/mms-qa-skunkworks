@@ -36,3 +36,11 @@ class Automation(object):
 		resp = requests.get(full_uri, auth=self.auth)
 		return resp.json()
 
+	def automation_working(self, group_id):
+		status = automation_client.get_status(group_id)
+		goal_version = status.get("goalVersion")
+		print(status)
+		for process in status["processes"]:
+			if process.get("lastGoalVersionAchieved") != goal_version:
+				return True
+		return False
