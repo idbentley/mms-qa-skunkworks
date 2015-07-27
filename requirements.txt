@@ -1,4 +1,4 @@
-coloredlogs==1.0.1
+colorlog==2.6.0
 ecdsa==0.13
 humanfriendly==1.33
 paramiko==1.15.2
