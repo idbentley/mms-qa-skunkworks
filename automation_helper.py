@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger("qa.{}".format(__name__))
 def add_new_rs(old_config, rs_id, dbpath, hostname, num_members, run_id):
 	new_rs = {
 		"_id": rs_id,

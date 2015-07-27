@@ -1,4 +1,7 @@
 from bson.objectid import ObjectId
+import logging
+
+logger = logging.getLogger("qa.{}".format(__name__))
 
 def find_a_snapshot(isdb_client, group_id, rs_id):
 	backupjobs_db = isdb_client.backupjobs

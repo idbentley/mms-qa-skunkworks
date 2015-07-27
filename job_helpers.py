@@ -1,7 +1,10 @@
 import time
 from bson.objectid import ObjectId
+import logging
 
 from qa_helpers import *
+
+logger = logging.getLogger("qa.{}".format(__name__))
 
 def get_most_recent_integrity_job(isdb_client, group_id, rs_id):
 	backupjobs_db = isdb_client.backupjobs

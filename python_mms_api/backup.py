@@ -4,7 +4,7 @@ import requests
 import json
 import logging
 
-logger = logging.getLogger("api.{}".format(__name__))
+logger = logging.getLogger("qa.api.{}".format(__name__))
 
 class Backup(object):
 

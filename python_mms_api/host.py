@@ -2,6 +2,9 @@ from python_mms_api.helpers import accept_json_header
 
 import requests
 import json
+import logging
+
+logger = logging.getLogger("qa.api.{}".format(__name__))
 
 class Host(object):
 

@@ -5,8 +5,8 @@ import random
 import json
 import argparse
 from bson.objectid import ObjectId
-import coloredlogs
 
+import log_config
 from python_mms_api.mms_client import MMSClient
 from job_helpers import *
 from automation_helper import *
@@ -14,7 +14,7 @@ from snapshot_helpers import *
 from private_conf import config
 
 run_id = random.randint(0,1000)
-logger = logging.getLogger("scripts.{}".format(__name__))
+logger = logging.getLogger("qa.scripts.integrity_check")
 
 def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 	backupjobs_db = isdb_client.backupjobs
@@ -64,7 +64,7 @@ def is_backup_working(group_id, cluster_id):
 	return True
 
 if __name__ == "__main__":
-	coloredlogs.install()
+	log_config.config(logger)
 	parser = argparse.ArgumentParser(description="Test integrity check job")
 	parser.add_argument(dest='group_id', type=ObjectId, help="The group id to utilize")
 	parser.add_argument(dest='hostname', type=str, help="The previously provisioned hostname.")

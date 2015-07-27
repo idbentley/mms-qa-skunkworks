@@ -1,10 +1,10 @@
 import logging
-import coloredlogs
 
-logger = logging.getLogger("foo")
+import log_config
+logger = logging.getLogger("qa")
 
 if __name__ == "__main__":
-	coloredlogs.install()
+	log_config.config(logger)
 	
 	logger.debug("foo")
 	logger.info("bar")

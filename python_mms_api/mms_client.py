@@ -4,6 +4,9 @@ from python_mms_api.backup import Backup
 from python_mms_api.automation import Automation
 from python_mms_api.cluster import Cluster
 from python_mms_api.host import Host
+import logging
+
+logger = logging.getLogger("qa.api.{}".format(__name__))
 
 class MMSClient(object):
 
