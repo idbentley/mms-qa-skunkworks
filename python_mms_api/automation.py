@@ -41,7 +41,6 @@ class Automation(object):
 	def automation_working(self, group_id):
 		status = self.get_status(group_id)
 		goal_version = status.get("goalVersion")
-		print(status)
 		for process in status["processes"]:
 			if process.get("lastGoalVersionAchieved") != goal_version:
 				return True

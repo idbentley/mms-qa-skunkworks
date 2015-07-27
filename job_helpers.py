@@ -17,7 +17,7 @@ def get_most_recent_integrity_job(isdb_client, group_id, rs_id):
 		if recent_jobs.count() > 0:
 			break
 		time.sleep(10)
-		print("no job found yet ")
+		logger.debug("no job found yet ")
 	return recent_jobs.next()
 
 def was_most_recent_integrity_job_successful(isdb_client, group_id, rs_id):

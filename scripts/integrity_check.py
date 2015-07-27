@@ -22,6 +22,7 @@ def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 		"groupId": ObjectId(group_id),
 		"rsId": rs_id
 	})
+	logger.info(pprint.pformat(implicit_job))
 	snapshot = implicit_job.get("snapshot", {})
 	blockstore = implicit_job.get("blockstore", {})
 	caching_enabled = snapshot.get("caching", False)
@@ -113,5 +114,7 @@ if __name__ == "__main__":
 	while not integrity_job_finished(isdb_client, integrity_job_id):
 		time.sleep(10)
 		logger.debug("waiting on integrity job")
-	confirm_integrity_job_failed(isdb_client, integrity_job_id)
-	ensure_job_updates(isdb_client, args.group_id, rs_id, False)
+	if not confirm_integrity_job_failed(isdb_client, integrity_job_id):
+		logger.error("Integrity check didn't fail.")
+	if not ensure_job_updates(isdb_client, args.group_id, rs_id, False):
+		logger.error("could not ensure that the job was updated appropriately")
