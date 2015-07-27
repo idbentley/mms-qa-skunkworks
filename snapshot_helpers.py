@@ -11,6 +11,6 @@ def corrupt_snapshot(isdb_client, snapshot_id):
 	backupjobs_db = isdb_client.backupjobs
 	query = {"_id": snapshot_id}
 	update = {
-		"$addToSet": {"fileIds": ObjectId()}
+		"$pop": {"fileIds": -1}
 	}
 	backupjobs_db.snapshots.update(query, update)

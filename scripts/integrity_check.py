@@ -5,6 +5,7 @@ import random
 import json
 import argparse
 from bson.objectid import ObjectId
+import pprint
 
 import log_config
 from python_mms_api.mms_client import MMSClient
@@ -92,7 +93,8 @@ if __name__ == "__main__":
 			break
 	logger.info("clusterId " + str(cluster_id))
 	success = start_backup(args.group_id, cluster_id)
-	logger.debug("backup patched: " + str(success))
+	if not success:
+		logger.error("Failed to start backup.")
 	while is_backup_working(args.group_id, cluster_id):
 		time.sleep(10)
 		logger.debug("polling backup")
