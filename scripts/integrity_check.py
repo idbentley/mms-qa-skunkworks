@@ -5,6 +5,7 @@ import random
 import json
 import argparse
 from bson.objectid import ObjectId
+import coloredlogs
 
 from python_mms_api.mms_client import MMSClient
 from job_helpers import *
@@ -13,6 +14,7 @@ from snapshot_helpers import *
 from private_conf import config
 
 run_id = random.randint(0,1000)
+logger = logging.getLogger("scripts.{}".format(__name__))
 
 def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 	backupjobs_db = isdb_client.backupjobs
@@ -44,7 +46,7 @@ def start_backup(group_id, cluster_id):
 		config = backup_client.get_config(group_id, cluster_id)
 		if config is not None:
 			break;
-		print("waiting for backup client to know about replSet")
+		logger.debug("waiting for backup client to know about replSet")
 
 	config = {
 		"groupId": str(group_id),
@@ -62,6 +64,7 @@ def is_backup_working(group_id, cluster_id):
 	return True
 
 if __name__ == "__main__":
+	coloredlogs.install()
 	parser = argparse.ArgumentParser(description="Test integrity check job")
 	parser.add_argument(dest='group_id', type=ObjectId, help="The group id to utilize")
 	parser.add_argument(dest='hostname', type=str, help="The previously provisioned hostname.")
@@ -77,33 +80,38 @@ if __name__ == "__main__":
 	isdb_client = pymongo.MongoClient(host=config["mms_backup_db_host"], port=config["mms_backup_db_port"])
 	# Provision machines, and set up hosts before this
 	rs_id = update_automation_config(args.hostname, args.group_id)
-	print ("rsId " + rs_id)
+	logger.info("rsId " + rs_id)
 	while automation_client.automation_working(args.group_id):
 		time.sleep(10)
-		print("polling automation")
+		logger.debug("polling automation")
 	cluster_id = None
 	while True:
 		cluster_id = cluster_client.get_cluster_for_replica_set(args.group_id, rs_id)
 		if cluster_id is not None:
 			break
-	print ("clusterId " + str(cluster_id))
+	logger.info("clusterId " + str(cluster_id))
 	success = start_backup(args.group_id, cluster_id)
-	print("backup patched: " + str(success))
+	logger.debug("backup patched: " + str(success))
 	while is_backup_working(args.group_id, cluster_id):
 		time.sleep(10)
-		print("polling backup")
-	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):
-		print("most recent integrity job not successful.")
+		logger.debug("polling backup")
 
+	while find_a_snapshot(isdb_client, args.group_id, rs_id) is None:
+		time.sleep(10)
+		logger.debug("waiting for first snapshot")
+	
+	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):
+		logger.debug("most recent integrity job not successful.")
+	
 	if not ensure_job_updates(isdb_client, args.group_id, rs_id, True):
-		print("could not ensure that the job was updated apropriately")
+		logger.error("could not ensure that the job was updated apropriately")
 	snapshot = find_a_snapshot(isdb_client, args.group_id, rs_id)
 	if snapshot is None or "_id" not in snapshot:
-		print("could not find usable snapshot.")
+		logger.error("could not find usable snapshot.")
 	corrupt_snapshot(isdb_client, snapshot["_id"])
 	integrity_job_id = schedule_integrity_job(isdb_client, args.group_id, rs_id)
 	while not integrity_job_finished(isdb_client, integrity_job_id):
 		time.sleep(10)
-		print("waiting on integrity job")
+		logger.debug("waiting on integrity job")
 	confirm_integrity_job_failed(isdb_client, integrity_job_id)
-	ensure_job_update(isdb_client, args.group_id, rs_id, False)
+	ensure_job_updates(isdb_client, args.group_id, rs_id, False)

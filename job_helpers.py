@@ -19,9 +19,8 @@ def get_most_recent_integrity_job(isdb_client, group_id, rs_id):
 
 def was_most_recent_integrity_job_successful(isdb_client, group_id, rs_id):
 	recent_job = get_most_recent_integrity_job(isdb_client, group_id, rs_id)
-	print(recent_job)
 	if not recent_job: return False
-	return recent_job["finished"] is not None and not recent_job["broken"] and not recent_job["workingOn"]
+	return not recent_job["finished"] and not recent_job["broken"] and not recent_job["workingOn"]
 
 def schedule_integrity_job(isdb_client, group_id, rs_id):
 	last_integrity_check_job = get_most_recent_integrity_job(isdb_client, group_id, rs_id)
@@ -32,11 +31,12 @@ def schedule_integrity_job(isdb_client, group_id, rs_id):
 	return res.inserted_id
 
 def integrity_job_finished(isdb_client, integrity_job_id):
-	backupjobs_db = isdb_client
-	job = backupjobs_db.find({"_id": integrity_job_id})
+	backupjobs_db = isdb_client.backupjobs
+	job = backupjobs_db.blockstore_jobs.find_one({"_id": integrity_job_id})
 	return job["finished"]
 
 def confirm_integrity_job_failed(isdb_client, integrity_job_id):
-	backupjobs_db = isdb_client
-	job = backupjobs_db.find({"_id": integrity_job_id})
+	backupjobs_db = isdb_client.backupjobs
+	job = backupjobs_db.blockstore_jobs.find_one({"_id": integrity_job_id})
 	return job["finished"] and job["broken"] and not job["workingOn"]
+	

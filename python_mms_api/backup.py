@@ -2,6 +2,9 @@ from python_mms_api.helpers import accept_json_header
 
 import requests
 import json
+import logging
+
+logger = logging.getLogger("api.{}".format(__name__))
 
 class Backup(object):
 
@@ -17,7 +20,6 @@ class Backup(object):
 		return resp.json()
 
 	def patch_config(self, group_id, cluster_id, config):
-		print(cluster_id)
 		uri = "/api/public/v1.0/groups/{group_id}/backupConfigs/{cluster_id}"
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
@@ -28,11 +30,8 @@ class Backup(object):
 				data=json.dumps(config),
 				auth=self.auth)
 			if resp.status_code == 404:
-				print(resp)
-				print(resp.content)
+				logger.info("could not find cluster, trying again.")
 				continue
-			print(resp)
-			print(resp.content)
 			break
 		return resp.status_code == 202
 

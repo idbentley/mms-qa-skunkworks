@@ -15,7 +15,6 @@ class Automation(object):
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id)
 		resp = requests.get(full_uri, auth=self.auth)
-		#return AutomationConfig.parse_json(resp.json())
 		return resp.json()
 
 	def update_config(self, group_id, config):
@@ -37,7 +36,7 @@ class Automation(object):
 		return resp.json()
 
 	def automation_working(self, group_id):
-		status = automation_client.get_status(group_id)
+		status = self.get_status(group_id)
 		goal_version = status.get("goalVersion")
 		print(status)
 		for process in status["processes"]:
