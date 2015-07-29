@@ -15,7 +15,7 @@ from snapshot_helpers import *
 from private_conf import config
 
 run_id = random.randint(0,1000)
-logger = logging.getLogger("qa.scripts.integrity_check")
+logger = logging.getLogger("qa")
 
 def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 	backupjobs_db = isdb_client.backupjobs
@@ -23,7 +23,7 @@ def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 		"groupId": ObjectId(group_id),
 		"rsId": rs_id
 	})
-	logger.info(pprint.pformat(implicit_job))
+	# logger.info(pprint.pformat(implicit_job))
 	snapshot = implicit_job.get("snapshot", {})
 	blockstore = implicit_job.get("blockstore", {})
 	caching_enabled = snapshot.get("caching", False)
@@ -44,12 +44,6 @@ def update_automation_config(hostname, group_id):
 
 
 def start_backup(group_id, cluster_id):
-	while True:
-		config = backup_client.get_config(group_id, cluster_id)
-		if config is not None:
-			break;
-		logger.debug("waiting for backup client to know about replSet")
-
 	config = {
 		"groupId": str(group_id),
 		"clusterId": cluster_id,
@@ -58,12 +52,14 @@ def start_backup(group_id, cluster_id):
 	}
 	return backup_client.patch_config(group_id, cluster_id, config)
 
+
 def is_backup_working(group_id, cluster_id):
 	status = backup_client.get_config(group_id, cluster_id)
 	status_name = status.get("statusName")
 	if status_name == "STARTED":
 		return False
 	return True
+
 
 if __name__ == "__main__":
 	log_config.config(logger)
@@ -72,7 +68,7 @@ if __name__ == "__main__":
 	parser.add_argument(dest='hostname', type=str, help="The previously provisioned hostname.")
 	args = parser.parse_args()
 	mms_client = MMSClient(
-		"https://cloud-qa.mongodb.com",
+		config['mms_api_base_url'],
 		config['mms_api_username'],
 		config['mms_api_key']
 		)
@@ -92,6 +88,8 @@ if __name__ == "__main__":
 		if cluster_id is not None:
 			break
 	logger.info("clusterId " + str(cluster_id))
+
+	time.sleep(20) # give it a moment for le pings.
 	success = start_backup(args.group_id, cluster_id)
 	if not success:
 		logger.error("Failed to start backup.")
@@ -99,23 +97,24 @@ if __name__ == "__main__":
 		time.sleep(10)
 		logger.debug("polling backup")
 
-	while find_a_snapshot(isdb_client, args.group_id, rs_id) is None:
-		time.sleep(10)
-		logger.debug("waiting for first snapshot")
-	
+	# Blocks waiting for the job to finish
 	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):
 		logger.debug("most recent integrity job not successful.")
 	
 	if not ensure_job_updates(isdb_client, args.group_id, rs_id, True):
 		logger.error("could not ensure that the job was updated apropriately")
+
+
 	snapshot = find_a_snapshot(isdb_client, args.group_id, rs_id)
 	if snapshot is None or "_id" not in snapshot:
 		logger.error("could not find usable snapshot.")
 	corrupt_snapshot(isdb_client, snapshot["_id"])
+
 	integrity_job_id = schedule_integrity_job(isdb_client, args.group_id, rs_id)
 	while not integrity_job_finished(isdb_client, integrity_job_id):
 		time.sleep(10)
 		logger.debug("waiting on integrity job")
+
 	if not confirm_integrity_job_failed(isdb_client, integrity_job_id):
 		logger.error("Integrity check didn't fail.")
 	if not ensure_job_updates(isdb_client, args.group_id, rs_id, False):

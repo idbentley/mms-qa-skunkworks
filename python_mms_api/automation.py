@@ -29,6 +29,8 @@ class Automation(object):
 			headers=accept_json_header,
 			auth=self.auth,
 			data=json.dumps(config))
+		if resp.status_code != 200:
+			logger.warn(resp.content)
 		return resp.status_code == 200
 
 	def get_status(self, group_id):
