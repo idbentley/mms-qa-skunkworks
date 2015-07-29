@@ -119,3 +119,8 @@ if __name__ == "__main__":
 		logger.error("Integrity check didn't fail.")
 	if not ensure_job_updates(isdb_client, args.group_id, rs_id, False):
 		logger.error("could not ensure that the job was updated appropriately")
+	else:
+		logger.info("Integrity check on corruped snapshot failed.  ImplicitJob updated appropriately")
+
+	logger.info("Test Completed Successfully! However an additional check is required.")
+	logger.info(" - Wait for the next snapshot and make sure it isn't caching by checking the SnapshotJob logs.")
