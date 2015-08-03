@@ -1,12 +1,7 @@
 import time
-from pymongo import MongoClient
 
-client = MongoClient(host="localhost:28101")
-db = client.noisedb
-coll = db.foo
-
-while(True):
-	coll.insert([
+def insert_some(mongo_coll):
+	mongo_coll.insert([
 	  {
 	    "index": 0,
 	    "guid": "b8c40b0b-28a7-47f5-bff1-e6a398294694",

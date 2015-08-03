@@ -9,9 +9,9 @@ import pprint
 
 import log_config
 from python_mms_api.mms_client import MMSClient
-from job_helpers import *
+from isdb.job_helpers import *
+from isdb.snapshot_helpers import *
 from automation_helper import *
-from snapshot_helpers import *
 from private_conf import config
 
 run_id = random.randint(0,1000)
