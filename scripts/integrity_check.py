@@ -33,34 +33,6 @@ def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 		return caching_enabled == desired_caching
 	return False
 
-
-def update_automation_config(hostname, group_id):
-	old_config = automation_client.get_config(group_id)
-	rs_id = "integrity-" + str(run_id)
-	dbpath = "/data/" + str(run_id) + "_1/"
-	add_new_rs(old_config, rs_id, dbpath, hostname, 1, run_id)
-	automation_client.update_config(group_id, old_config)
-	return rs_id
-
-
-def start_backup(group_id, cluster_id):
-	config = {
-		"groupId": str(group_id),
-		"clusterId": cluster_id,
-		"statusName": "STARTED",
-		"syncSource": "PRIMARY"
-	}
-	return backup_client.patch_config(group_id, cluster_id, config)
-
-
-def is_backup_working(group_id, cluster_id):
-	status = backup_client.get_config(group_id, cluster_id)
-	status_name = status.get("statusName")
-	if status_name == "STARTED":
-		return False
-	return True
-
-
 if __name__ == "__main__":
 	log_config.config(logger)
 	parser = argparse.ArgumentParser(description="Test integrity check job")
@@ -77,25 +49,17 @@ if __name__ == "__main__":
 	cluster_client = mms_client.get_cluster_client()
 	isdb_client = pymongo.MongoClient(host=config["mms_backup_db_host"], port=config["mms_backup_db_port"])
 	# Provision machines, and set up hosts before this
-	rs_id = update_automation_config(args.hostname, args.group_id)
+	rs_id = add_replica_set_to_group(automation_client, args.hostname, args.group_id)
 	logger.info("rsId " + rs_id)
-	while automation_client.automation_working(args.group_id):
-		time.sleep(10)
-		logger.debug("polling automation")
-	cluster_id = None
-	while True:
-		cluster_id = cluster_client.get_cluster_for_replica_set(args.group_id, rs_id)
-		if cluster_id is not None:
-			break
+	block_on_automation_finishing(automation_client, args.group_id)
+	cluster_id = get_cluster_id_for_rs(cluster_client, args.group_id, rs_id)
 	logger.info("clusterId " + str(cluster_id))
-
+	
 	time.sleep(20) # give it a moment for le pings.
-	success = start_backup(args.group_id, cluster_id)
+	success = start_backup(backup_client, args.group_id, cluster_id)
 	if not success:
 		logger.error("Failed to start backup.")
-	while is_backup_working(args.group_id, cluster_id):
-		time.sleep(10)
-		logger.debug("polling backup")
+	block_on_backup_finishing(backup_client, args.group_id, cluster_id)
 
 	# Blocks waiting for the job to finish
 	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):

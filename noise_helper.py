@@ -1,6 +1,54 @@
+from bson.objectid import ObjectId
 import time
+import logging
 
-def insert_some(mongo_coll):
+logger = logging.getLogger("qa.{}".format(__name__))
+
+
+def upsert_some_known(mongo_coll):
+	mongo_coll.update_one({"_id": ObjectId("55c12e47a4954b58d9fc2ca4")},
+		{
+			"$set": {
+				"_id": ObjectId("55c12e47a4954b58d9fc2ca4"),
+				"name": "Massey Bartlett",
+				"gender": "male",
+				"company": "SUPREMIA"
+			}
+		},
+		upsert=True)
+
+	mongo_coll.update_one({"_id": ObjectId("55c12e76a4954b58d9fc2ca5")},
+		{
+			"$set": {
+				"_id": ObjectId("55c12e76a4954b58d9fc2ca5"),
+				"name": "Manning Yang",
+				"gender": "male",
+				"company": "COWTOWN"
+			}
+		},
+		upsert=True)
+	mongo_coll.update_one({"_id": ObjectId("55c12e77a4954b58d9fc2ca6")},
+		{	
+			"$set": {
+				"_id": ObjectId("55c12e77a4954b58d9fc2ca6"),
+				"name": "Black Crosby",
+				"gender": "male",
+				"company": "ERSUM"
+			}
+		},
+		upsert=True)
+	
+def assert_known_values(mongo_coll):
+	known_ids = [ObjectId("55c12e47a4954b58d9fc2ca4"), ObjectId("55c12e76a4954b58d9fc2ca5"), ObjectId("55c12e77a4954b58d9fc2ca6")]
+	for i in mongo_coll.find():
+		if i["_id"] not in known_ids:
+			logger.error("Found unexpected value in restore!")
+			return
+	logger.info("Restore contained expected values.")
+
+
+
+def insert_some_noise(mongo_coll):
 	mongo_coll.insert([
 	  {
 	    "index": 0,
@@ -267,4 +315,3 @@ def insert_some(mongo_coll):
 	    "favoriteFruit": "apple"
 	  }
 	])
-	time.sleep(0.005)

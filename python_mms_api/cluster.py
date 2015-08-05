@@ -30,3 +30,10 @@ class Cluster(object):
 				if cluster.get("replicaSetName") == rs_id:
 					return cluster.get("id")
 		return None
+
+	def get_cluster(self, group_id, cluster_id):
+		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}"
+		full_uri = self.base_uri + uri
+		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
+		resp = requests.get(full_uri, auth=self.auth)
+		return resp.json()

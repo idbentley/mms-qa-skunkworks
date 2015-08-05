@@ -1,3 +1,4 @@
+import time
 import logging
 
 logger = logging.getLogger("qa.{}".format(__name__))
@@ -131,3 +132,16 @@ def add_new_cluster(old_config, rs_prefix, hostname, num_shards, num_members_per
 
 	# add sharding config
 	add_sharding_config(old_config, "cluster_{}".format(run_id), rs_ids, cs_names)
+
+def add_replica_set_to_group(automation_client, hostname, group_id, entropy):
+	old_config = automation_client.get_config(group_id)
+	rs_id = "integrity-" + str(entropy)
+	dbpath = "/data/" + str(entropy) + "_1/"
+	add_new_rs(old_config, rs_id, dbpath, hostname, 1, entropy)
+	automation_client.update_config(group_id, old_config)
+	return rs_id
+
+def block_on_automation_finishing(automation_client, group_id):
+	while automation_client.automation_working(group_id):
+		time.sleep(10)
+		logger.debug("polling automation")

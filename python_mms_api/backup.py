@@ -42,4 +42,3 @@ class Backup(object):
 				logger.info("problem: {}".format(resp.content))
 			break
 		return resp.status_code == 202
-
