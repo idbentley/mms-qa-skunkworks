@@ -37,6 +37,22 @@ def check_hash(restore_obj, filename):
 		logger.error("Expected sum {}, but got {}".format(comparable_sum, calculated_sum))
 		return False
 
+def check_restore(group_id, cluster_id, restore_id, saved_file):
+	# Need to get the job again now that the hashes are calculated.
+	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
+	check_hash(restore_job, saved_file)
+	untarred_path = untar_file(saved_file)
+	try:
+		p = start_mongo_process(untarred_path, 28001)
+		head_conn = pymongo.MongoClient(port=28001, connectTimeoutMS=60000)
+		count = head_conn.test.coll.find().count()
+		if count != 3:
+			logger.error("Wrong number of docs found.")
+		assert_known_values(head_conn.test.coll)
+	except ServerSelectionTimeoutError as e:
+		logger.error("Could not connect to head - {}".format(e))
+	finally:
+		p.terminate()
 
 
 if __name__ == "__main__":
@@ -45,6 +61,7 @@ if __name__ == "__main__":
 	parser.add_argument(dest="group_id", type=ObjectId, help="The group id to utilize")
 	parser.add_argument(dest="hostname", type=str, help="The previously provisioned hostname.")
 	parser.add_argument("-c", dest="cluster_id", type=ObjectId, help="Cluster to work upon.  If blank, will create one.")
+	parser.add_argument("-p", "--pit", action="store_true", help="After confirming snapshot, also confirm a PIT.")
 	args = parser.parse_args()
 	mms_client = MMSClient(
 		config['mms_api_base_url'],
@@ -61,6 +78,7 @@ if __name__ == "__main__":
 	group_id = args.group_id
 	hostname = args.hostname
 	cluster_id = args.cluster_id
+
 	if not cluster_id:
 		rs_id = add_replica_set_to_group(automation_client, hostname, group_id, run_id)
 		logger.info("rsId {}".format(rs_id))
@@ -91,6 +109,7 @@ if __name__ == "__main__":
 
 	# Basic http pull restore workflow
 	restore_details = restore_client.create_http_snapshot_restore(group_id, cluster_id, snapshot["id"])
+
 	restore = restore_details["results"][0]
 	while True:
 		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
@@ -98,18 +117,33 @@ if __name__ == "__main__":
 	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
 	pull_restore_url = restore_job["delivery"]["url"]
 	saved_file = download_file(pull_restore_url)
-	# Need to get the job again now that the hashes are calculated.
+
+	check_restore(group_id, cluster_id, restore["id"], saved_file)
+
+	if not args.pit:
+		exit(0)
+	now = time.time()
+	logger.info("inserting data for 5 minutes")
+	while True:
+		insert_some_noise(host_conn.other.coll)
+		time.sleep(0.5)
+		if time.time() - now > 5 * 60:
+			break
+	point_in_time = time.time()	
+	time.sleep(10)
+	insert_some_noise(host_conn.other.coll)
+	logger.info("done inserting data.  Now waiting a couple minutes to let the sync slices catchup.")
+	# Give slices time to sync.
+	time.sleep(60*2)
+	logger.info("done sleeping.  Time for a PIT restore.")
+	restore_details = restore_client.create_http_pit_restore(group_id, cluster_id, point_in_time)
+	import pdb; pdb.set_trace()
+	restore = restore_details["results"][0]
+	while True:
+		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
+			break
 	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
-	check_hash(restore_job, saved_file)
-	untarred_path = untar_file(saved_file)
-	try:
-		p = start_mongo_process(untarred_path, 28001)
-		head_conn = pymongo.MongoClient(port=28001, connectTimeoutMS=60000)
-		count = head_conn.test.coll.find().count()
-		if count != 3:
-			logger.error("Wrong number of docs found.")
-		assert_known_values(head_conn.test.coll)
-	except ServerSelectionTimeoutError as e:
-		logger.error("Could not connect to head - {}".format(e))
-	finally:
-		p.terminate()
+	pull_restore_url = restore_job["delivery"]["url"]
+	saved_file = download_file(pull_restore_url)
+
+	check_restore(group_id, cluster_id, restore["id"], saved_file)

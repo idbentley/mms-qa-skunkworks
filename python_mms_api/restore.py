@@ -9,6 +9,8 @@ logger = logging.getLogger("qa.api.{}".format(__name__))
 
 class Restore(object):
 
+	format = "%Y-%m-%dT%H:%M:%SZ"
+
 	def __init__(self, base_uri, auth):
 		self.base_uri = base_uri
 		self.auth = auth
@@ -18,6 +20,25 @@ class Restore(object):
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
 		request_data = {"snapshotId": snapshot_id}
+		resp = requests.post(
+			full_uri,
+			headers=accept_json_header,
+			data=json.dumps(request_data),
+			auth=self.auth)
+		return resp.json()
+
+	def create_http_pit_restore(self, group_id, cluster_id, point_in_time):
+		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs"
+		full_uri = self.base_uri + uri
+		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
+		restore_date = time.strftime(self.format, time.gmtime(point_in_time))
+		request_data = {
+			"timestamp": {
+				"date": restore_date,
+				"increment": 0
+				}
+			}
+		import pdb; pdb.set_trace()
 		resp = requests.post(
 			full_uri,
 			headers=accept_json_header,
