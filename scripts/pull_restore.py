@@ -18,17 +18,19 @@ from cluster_helper import *
 from noise_helper import *
 from file_helper import *
 from mongo_helper import *
+import paramiko_helper
 from private_conf import config
 
 run_id = random.randint(0,1000)
 logger = logging.getLogger("qa")
 
+
 def check_hash(restore_obj, filename):
 	with open(filename, 'rb') as f:
 		calculated_sum = sha1_for_file(f)
-	for h in restore_obj["hashes"]:
-		if h["fileName"] == filename:
-			comparable_sum = h["hash"]
+	for hash_obj in restore_obj["hashes"]:
+		if hash_obj["fileName"] == filename:
+			comparable_sum = hash_obj["hash"]
 			break
 	if calculated_sum == comparable_sum:
 		logger.info("Hash matched expectations.")
@@ -54,6 +56,57 @@ def check_restore(group_id, cluster_id, restore_id, saved_file):
 	finally:
 		p.terminate()
 
+def	test_pull_restore(group_id, cluster_id, snapshot_id):
+	restore_details = restore_client.create_http_snapshot_restore(group_id, cluster_id, snapshot_id)
+	_test_pull_restore(group_id, cluster_id, restore_details["results"][0])
+
+def test_pit_pull_restore(group_id, cluster_id, point_in_time):
+	restore_details = restore_client.create_http_pit_restore(group_id, cluster_id, point_in_time)
+	_test_pull_restore(group_id, cluster_id, restore_details["results"][0])
+
+def _test_pull_restore(group_id, cluster_id, restore):
+	restore = restore_details["results"][0]
+	while True:
+		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
+			break
+	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
+	pull_restore_url = restore_job["delivery"]["url"]
+	saved_file = download_file(pull_restore_url)
+
+	check_restore(group_id, cluster_id, restore["id"], saved_file)
+
+def test_scp_restore(group_id, cluster_id, snapshot_id, scp_details):
+	restore_details = restore_client.create_scp_snapshot_restore(group_id, cluster_id, snapshot_id, scp_details)
+	restore = restore_details["results"][0]
+	while True:
+		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
+			break
+	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
+	logger.info("restore Job {}".format(restore_job))
+	hashes = restore_job["hashes"]
+	logger.info("hashes {}".format(hashes))
+	ssh_client = paramiko_helper.get_client(config["ssh_credentials"]["scp_target"])
+	for hash_obj in hashes:
+
+		dir_context = "restores"
+		sha1sum = paramiko_helper.sha_file(ssh_client, dir_context, hash_obj["fileName"])
+		if sha1sum != hash_obj["hash"]:
+			logger.error("Expected sum {}, but got {}".format(hash_obj["hash"], sha1sum))
+	paramiko_helper.untar_file(ssh_client, dir_context, hash_obj["fileName"])
+	tar_out = "{}/{}".format(dir_context, hash_obj["fileName"].partition(".")[0])
+	remote_mongo = paramiko_helper.RemoteMongo(ssh_client, tar_out, 8089)
+	remote_mongo.start()
+	while True:
+		try:
+			head_conn = pymongo.MongoClient(host=config["ssh_credentials"]["scp_target"]["hostname"], port=8089, connectTimeoutMS=60000)
+			count = head_conn.test.coll.find().count()
+			if count != 3:
+				logger.error("Wrong number of docs found.")
+			assert_known_values(head_conn.test.coll)
+			break
+		except ServerSelectionTimeoutError as e:
+			logger.error("Could not connect to head - {}".format(e))
+	remote_mongo.kill()
 
 if __name__ == "__main__":
 	log_config.config(logger)
@@ -61,7 +114,6 @@ if __name__ == "__main__":
 	parser.add_argument(dest="group_id", type=ObjectId, help="The group id to utilize")
 	parser.add_argument(dest="hostname", type=str, help="The previously provisioned hostname.")
 	parser.add_argument("-c", dest="cluster_id", type=ObjectId, help="Cluster to work upon.  If blank, will create one.")
-	parser.add_argument("-p", "--pit", action="store_true", help="After confirming snapshot, also confirm a PIT.")
 	args = parser.parse_args()
 	mms_client = MMSClient(
 		config['mms_api_base_url'],
@@ -107,21 +159,10 @@ if __name__ == "__main__":
 			logger.debug("waiting for first snapshot")
 	logger.info("restoring snapshot {}".format(snapshot["id"]))
 
-	# Basic http pull restore workflow
-	restore_details = restore_client.create_http_snapshot_restore(group_id, cluster_id, snapshot["id"])
+	###########
 
-	restore = restore_details["results"][0]
-	while True:
-		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
-			break
-	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
-	pull_restore_url = restore_job["delivery"]["url"]
-	saved_file = download_file(pull_restore_url)
+	"""	test_pull_restore(group_id, cluster_id, snapshot["id"])
 
-	check_restore(group_id, cluster_id, restore["id"], saved_file)
-
-	if not args.pit:
-		exit(0)
 	now = time.time()
 	logger.info("inserting data for 5 minutes")
 	while True:
@@ -132,18 +173,12 @@ if __name__ == "__main__":
 	point_in_time = time.time()	
 	time.sleep(10)
 	insert_some_noise(host_conn.other.coll)
+
 	logger.info("done inserting data.  Now waiting a couple minutes to let the sync slices catchup.")
-	# Give slices time to sync.
 	time.sleep(60*2)
 	logger.info("done sleeping.  Time for a PIT restore.")
-	restore_details = restore_client.create_http_pit_restore(group_id, cluster_id, point_in_time)
-	import pdb; pdb.set_trace()
-	restore = restore_details["results"][0]
-	while True:
-		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
-			break
-	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
-	pull_restore_url = restore_job["delivery"]["url"]
-	saved_file = download_file(pull_restore_url)
+	test_pit_pull_restore(group_id, cluster_id, point_in_time)"""
 
-	check_restore(group_id, cluster_id, restore["id"], saved_file)
+	###########
+
+	test_scp_restore(group_id, cluster_id, snapshot["id"], config["restore_credentials"]["scp_target"])

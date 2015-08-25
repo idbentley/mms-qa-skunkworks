@@ -12,6 +12,12 @@ from python_mms_api.mms_client import MMSClient
 from isdb.job_helpers import *
 from isdb.snapshot_helpers import *
 from automation_helper import *
+from cluster_helper import *
+from backup_helper import *
+from file_helper import *
+from mongo_helper import *
+from noise_helper import *
+from qa_helpers import *
 from private_conf import config
 
 run_id = random.randint(0,1000)
@@ -23,13 +29,13 @@ def ensure_job_updates(isdb_client, group_id, rs_id, desired_caching):
 		"groupId": ObjectId(group_id),
 		"rsId": rs_id
 	})
-	# logger.info(pprint.pformat(implicit_job))
+	logger.info(pprint.pformat(implicit_job))
 	snapshot = implicit_job.get("snapshot", {})
 	blockstore = implicit_job.get("blockstore", {})
 	caching_enabled = snapshot.get("caching", False)
 	last_updated_ms = snapshot.get("lastUpdatedMS", long_time_ago)
 	last_integrity_check_ms = blockstore.get("lastIntegrityCheckMS", long_time_ago)
-	if is_recent_ms(last_updated_ms) and is_recent_ms(last_integrity_check_ms):
+	if is_recent_ms(last_updated_ms, 600 * 1000) and is_recent_ms(last_integrity_check_ms, 600 * 1000):
 		return caching_enabled == desired_caching
 	return False
 
@@ -49,7 +55,7 @@ if __name__ == "__main__":
 	cluster_client = mms_client.get_cluster_client()
 	isdb_client = pymongo.MongoClient(host=config["mms_backup_db_host"], port=config["mms_backup_db_port"])
 	# Provision machines, and set up hosts before this
-	rs_id = add_replica_set_to_group(automation_client, args.hostname, args.group_id)
+	rs_id = add_replica_set_to_group(automation_client, args.hostname, args.group_id, run_id)
 	logger.info("rsId " + rs_id)
 	block_on_automation_finishing(automation_client, args.group_id)
 	cluster_id = get_cluster_id_for_rs(cluster_client, args.group_id, rs_id)
@@ -64,7 +70,6 @@ if __name__ == "__main__":
 	# Blocks waiting for the job to finish
 	if not was_most_recent_integrity_job_successful(isdb_client, args.group_id, rs_id):
 		logger.debug("most recent integrity job not successful.")
-	
 	if not ensure_job_updates(isdb_client, args.group_id, rs_id, True):
 		logger.error("could not ensure that the job was updated apropriately")
 

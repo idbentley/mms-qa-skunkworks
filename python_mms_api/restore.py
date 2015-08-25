@@ -38,13 +38,38 @@ class Restore(object):
 				"increment": 0
 				}
 			}
-		import pdb; pdb.set_trace()
 		resp = requests.post(
 			full_uri,
 			headers=accept_json_header,
 			data=json.dumps(request_data),
 			auth=self.auth)
 		return resp.json()
+
+	def create_scp_snapshot_restore(self, group_id, cluster_id, snapshot_id, scp_details):
+		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs"
+		full_uri = self.base_uri + uri
+		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
+		request_data = {
+			"snapshotId": snapshot_id,
+			"delivery": {
+				"methodName": "SCP",
+				"formatName": "ARCHIVE",
+				"hostname": scp_details.get("hostname", "localhost"),
+				"port": scp_details.get("port", 22),
+				"username": scp_details["username"],
+				"password": scp_details["password"],
+				"passwordTypeName": "SSH_KEY",
+				"targetDirectory": scp_details["targetDirectory"]
+
+			}
+		}
+		resp = requests.post(
+			full_uri,
+			headers=accept_json_header,
+			data=json.dumps(request_data),
+			auth=self.auth)
+		return resp.json()
+
 
 	def get_restore_job(self, group_id, cluster_id, job_id):
 		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs/{job_id}"

@@ -1,4 +1,5 @@
 import logging
+import time
 
 logger = logging.getLogger("qa.{}".format(__name__))
 
