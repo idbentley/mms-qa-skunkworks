@@ -82,4 +82,4 @@ class Restore(object):
 
 	def is_job_finished(self, group_id, cluster_id, job_id):
 		job = self.get_restore_job(group_id, cluster_id, job_id)
-		return job["statusName"] == "FINISHED"
+		return job["statusName"] == "FINISHED" or job["statusName"] == "BROKEN"

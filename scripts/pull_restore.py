@@ -25,6 +25,8 @@ run_id = random.randint(0,1000)
 logger = logging.getLogger("qa")
 
 
+
+
 def check_hash(restore_obj, filename):
 	with open(filename, 'rb') as f:
 		calculated_sum = sha1_for_file(f)
@@ -41,7 +43,7 @@ def check_hash(restore_obj, filename):
 
 def check_restore(group_id, cluster_id, restore_id, saved_file):
 	# Need to get the job again now that the hashes are calculated.
-	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore["id"])
+	restore_job = restore_client.get_restore_job(group_id, cluster_id, restore_id)
 	check_hash(restore_job, saved_file)
 	untarred_path = untar_file(saved_file)
 	try:
@@ -65,7 +67,6 @@ def test_pit_pull_restore(group_id, cluster_id, point_in_time):
 	_test_pull_restore(group_id, cluster_id, restore_details["results"][0])
 
 def _test_pull_restore(group_id, cluster_id, restore):
-	restore = restore_details["results"][0]
 	while True:
 		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
 			break
@@ -75,9 +76,71 @@ def _test_pull_restore(group_id, cluster_id, restore):
 
 	check_restore(group_id, cluster_id, restore["id"], saved_file)
 
+
+"""
+
+ 1. Initiate Restore
+ 2. wait for restore to complete
+ 3. check hashes
+ 4. untar if necessary
+ 5. start mongod
+ 6. connect to mongod
+ 7. assert contents
+ 8. shutdown mongod
+ 9. Clean up?
+
+"""
+"""
+class RestoreTester(object):
+
+	def __init__():
+		pass
+
+	def request_restore():
+		pass
+
+	def check_hashes():
+		pass
+
+	def prepare_restore():
+		pass
+
+	def start_mongod():
+		pass
+
+	def get_mongo_connection():
+		pass
+
+	def kill_mongod():
+		pass
+
+	def assert_contents(mongo_client):
+		pass
+
+	def check_restore_contents():
+		with get_mongo_connection() as client:
+			assert_contents(client)
+
+	def clean_up():
+		pass
+
+	def run():
+		request_restore()
+		check_hashes()
+		prepare_restore()
+		start_mongod()
+		check_restore_contents()
+		clean_up()
+
+class LocalPullRestoreTester(RestoreTester):"""
+
+
+
 def test_scp_restore(group_id, cluster_id, snapshot_id, scp_details):
+	logger.info("testing scp restore.")
 	restore_details = restore_client.create_scp_snapshot_restore(group_id, cluster_id, snapshot_id, scp_details)
 	restore = restore_details["results"][0]
+	logger.info("received restore id {}".format(restore["id"]))
 	while True:
 		if restore_client.is_job_finished(group_id, cluster_id, restore["id"]):
 			break
@@ -87,7 +150,6 @@ def test_scp_restore(group_id, cluster_id, snapshot_id, scp_details):
 	logger.info("hashes {}".format(hashes))
 	ssh_client = paramiko_helper.get_client(config["ssh_credentials"]["scp_target"])
 	for hash_obj in hashes:
-
 		dir_context = "restores"
 		sha1sum = paramiko_helper.sha_file(ssh_client, dir_context, hash_obj["fileName"])
 		if sha1sum != hash_obj["hash"]:
@@ -102,10 +164,15 @@ def test_scp_restore(group_id, cluster_id, snapshot_id, scp_details):
 			count = head_conn.test.coll.find().count()
 			if count != 3:
 				logger.error("Wrong number of docs found.")
-			assert_known_values(head_conn.test.coll)
+			try:
+				assert_known_values(head_conn.test.coll)
+			finally:
+				admin_db = head_conn
+				admin_db.command("shutdown")
 			break
 		except ServerSelectionTimeoutError as e:
 			logger.error("Could not connect to head - {}".format(e))
+
 	remote_mongo.kill()
 
 if __name__ == "__main__":
@@ -161,23 +228,23 @@ if __name__ == "__main__":
 
 	###########
 
-	"""	test_pull_restore(group_id, cluster_id, snapshot["id"])
+	# test_pull_restore(group_id, cluster_id, snapshot["id"])
 
-	now = time.time()
-	logger.info("inserting data for 5 minutes")
-	while True:
-		insert_some_noise(host_conn.other.coll)
-		time.sleep(0.5)
-		if time.time() - now > 5 * 60:
-			break
-	point_in_time = time.time()	
-	time.sleep(10)
-	insert_some_noise(host_conn.other.coll)
+	# now = time.time()
+	# logger.info("inserting data for 5 minutes")
+	# while True:
+	# 	insert_some_noise(host_conn.other.coll)
+	# 	time.sleep(0.5)
+	# 	if time.time() - now > 5 * 60:
+	# 		break
+	# point_in_time = time.time()	
+	# time.sleep(10)
+	# insert_some_noise(host_conn.other.coll)
 
-	logger.info("done inserting data.  Now waiting a couple minutes to let the sync slices catchup.")
-	time.sleep(60*2)
-	logger.info("done sleeping.  Time for a PIT restore.")
-	test_pit_pull_restore(group_id, cluster_id, point_in_time)"""
+	# logger.info("done inserting data.  Now waiting a couple minutes to let the sync slices catchup.")
+	# time.sleep(60*2)
+	# logger.info("done sleeping.  Time for a PIT restore.")
+	# test_pit_pull_restore(group_id, cluster_id, point_in_time)
 
 	###########
 
