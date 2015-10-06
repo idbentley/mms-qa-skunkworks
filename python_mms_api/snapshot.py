@@ -31,3 +31,11 @@ class Snapshot(object):
 		if snapshots["totalCount"] > 0:
 			return snapshots["results"][0]
 		return None
+
+	def find_most_recent_non_pit_snapshot(self, group_id, cluster_id):
+		snapshots = self.find_recent_snapshots(group_id, cluster_id)
+		for snapshot in snapshots["results"]:
+			if "pointInTimeRestore" in snapshot and snapshot["pointInTimeRestore"] == True:
+				continue
+			return snapshot
+		return None		

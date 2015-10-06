@@ -50,6 +50,12 @@ def do_ls(ssh_client, dir_context):
 	std_channels = ssh_client.exec_command("cd {}; ls".format(dir_context))
 	print_channels(std_channels)
 
+def get_dir_with_substring(ssh_client, dir_context, substring):
+	stdin, stdout, stderr = ssh_client.exec_command("cd {}; ls".format(dir_context))
+	for line in stdout.readlines():
+		if substring in line:
+			return line[:-1]
+
 def sha_file(ssh_client, dir_context, filename):
 	stdin, stdout, stderr = ssh_client.exec_command("cd {}; sha1sum {}".format(dir_context, filename))
 	for line in stdout.readlines():
@@ -69,26 +75,32 @@ def untar_file(ssh_client, dir_context, filename):
 		logger.info(e)
 		pass
 
-def start_mongo(ssh_client, dir_context, port):
-	return ssh_client.exec_command("mongod --port {} --dbpath {}".format(port, dir_context))
+def start_mongo(ssh_client, dir_context, storage_engine, port):
+	return ssh_client.exec_command("mongod --port {} --dbpath {} --storageEngine {}".format(port, dir_context, storage_engine))
 
 def killall_mongo(ssh_client):
 	ssh_client.exec_command("killall mongod")
 
 
 class RemoteMongo(threading.Thread):
-	def __init__(self, ssh_client, dir_context, port):
+
+	alive = True
+
+	def __init__(self, ssh_client, dir_context, storage_engine="mmapv1", port=0):
 		threading.Thread.__init__(self)
 		self.ssh_client = ssh_client
 		self.dir_context = dir_context
 		self.port = port
-		self.alive = True
+		self.storage_engine = storage_engine		
 
 	def kill(self):
 		self.alive = False
 
 	def run(self):
-		stdin, stdout, stderr = start_mongo(self.ssh_client, self.dir_context, self.port)
+		stdin, stdout, stderr = start_mongo(self.ssh_client, self.dir_context, self.storage_engine, self.port)
 		while self.alive:
-			stdout.readline()
+			line = stdout.readline()
+			if len(line) > 0:
+				logger.info(line)
+		pass
 		killall_mongo(self.ssh_client)

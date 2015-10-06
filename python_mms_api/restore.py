@@ -36,8 +36,8 @@ class Restore(object):
 			"timestamp": {
 				"date": restore_date,
 				"increment": 0
-				}
 			}
+		}
 		resp = requests.post(
 			full_uri,
 			headers=accept_json_header,
@@ -45,7 +45,7 @@ class Restore(object):
 			auth=self.auth)
 		return resp.json()
 
-	def create_scp_snapshot_restore(self, group_id, cluster_id, snapshot_id, scp_details):
+	def create_scp_snapshot_restore(self, group_id, cluster_id, snapshot_id, scp_details, individual):
 		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs"
 		full_uri = self.base_uri + uri
 		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
@@ -53,7 +53,7 @@ class Restore(object):
 			"snapshotId": snapshot_id,
 			"delivery": {
 				"methodName": "SCP",
-				"formatName": "ARCHIVE",
+				"formatName": "INDIVIDUAL" if individual else "ARCHIVE",
 				"hostname": scp_details.get("hostname", "localhost"),
 				"port": scp_details.get("port", 22),
 				"username": scp_details["username"],
@@ -70,6 +70,34 @@ class Restore(object):
 			auth=self.auth)
 		return resp.json()
 
+	def create_scp_pit_restore(self, group_id, cluster_id, point_in_time, scp_details, individual):
+		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs"
+		full_uri = self.base_uri + uri
+		full_uri = full_uri.format(group_id=group_id, cluster_id=cluster_id)
+		restore_date = time.strftime(self.format, time.gmtime(point_in_time))
+		request_data = {
+			"timestamp": {
+				"date": restore_date,
+				"increment": 0
+			},
+			"delivery": {
+				"methodName": "SCP",
+				"formatName": "INDIVIDUAL" if individual else "ARCHIVE",
+				"hostname": scp_details.get("hostname", "localhost"),
+				"port": scp_details.get("port", 22),
+				"username": scp_details["username"],
+				"password": scp_details["password"],
+				"passwordTypeName": "SSH_KEY",
+				"targetDirectory": scp_details["targetDirectory"]
+
+			}
+		}
+		resp = requests.post(
+			full_uri,
+			headers=accept_json_header,
+			data=json.dumps(request_data),
+			auth=self.auth)
+		return resp.json()
 
 	def get_restore_job(self, group_id, cluster_id, job_id):
 		uri = "/api/public/v1.0/groups/{group_id}/clusters/{cluster_id}/restoreJobs/{job_id}"

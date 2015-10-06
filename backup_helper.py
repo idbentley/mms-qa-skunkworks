@@ -9,10 +9,21 @@ def start_backup(backup_client, group_id, cluster_id):
 		"groupId": str(group_id),
 		"clusterId": str(cluster_id),
 		"statusName": "STARTED",
-		"syncSource": "PRIMARY"
+		"syncSource": "PRIMARY",
+		"storageEngineName" : "MEMORY_MAPPED"
 	}
 	return backup_client.patch_config(group_id, cluster_id, config)
 
+
+def start_wired_tiger_backup(backup_client, group_id, cluster_id):
+	config = {
+		"groupId": str(group_id),
+		"clusterId": str(cluster_id),
+		"statusName": "STARTED",
+		"syncSource": "PRIMARY",
+		"storageEngineName" : "WIRED_TIGER"
+	}
+	return backup_client.patch_config(group_id, cluster_id, config)
 
 def is_backup_working(backup_client, group_id, cluster_id):
 	status = backup_client.get_config(group_id, cluster_id)
